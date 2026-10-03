@@ -71,7 +71,7 @@ function simulate(params) {
   if (totalMonths <= 0) return emptyResult();
 
   /* 월 수익률 */
-  const g = reinvestDividend ? returnRate : Math.max(0, returnRate - dividendRate);
+  const g = reinvestDividend ? returnRate : (returnRate - dividendRate);
   const mf = 1 + (g / 12);                       // 월 성장 팩터 (복리 왜곡 방지용 단순 분할)
   const md = dividendRate / 12;                  // 월 배당률
 

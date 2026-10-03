@@ -309,7 +309,12 @@ function updateChart(result) {
               const d = (chart && chart.currentResult) ? chart.currentResult.yearly[idx] : result.yearly[idx];
               if (!d) return '';
               const lines = [];
-              if (d.divCash > 0) lines.push(`  배당 현금: ${formatKRW(d.divCash)}`);
+              if (d.divCash > 0) {
+                lines.push(`  배당 현금 (미투자): ${formatKRW(d.divCash)}`);
+              }
+              if (d.reinvestedSum > 0) {
+                lines.push(`  재투자된 배당금(누적): 약 ${formatKRW(d.reinvestedSum)}`);
+              }
               lines.push(`  공제 잔여: ${formatKRW(d.periodRemaining)}`);
               if (d.periodExcess > 0) lines.push(`  ⚠ 초과: ${formatKRW(d.periodExcess)}`);
               return lines;
@@ -338,9 +343,12 @@ function updateChart(result) {
             color: '#64748b',
             font: { family: "'Noto Sans KR', sans-serif", size: 11 },
             callback: (v) => {
-              if (v >= 100000000) return `${(v / 100000000).toFixed(0)}억`;
-              if (v >= 10000) return `${(v / 10000).toFixed(0)}만`;
-              return v;
+              if (v >= 100000000) {
+                const eokStr = parseFloat((v / 100000000).toFixed(2)).toString();
+                return `${eokStr}억`;
+              }
+              if (v >= 10000) return `${Math.round(v / 10000).toLocaleString()}만`;
+              return v.toLocaleString();
             },
           },
         },
@@ -534,7 +542,7 @@ function loadFromUrl() {
   if (!params.has('age')) return;
   DOM.ageSlider.value      = params.get('age') || 0;
   DOM.initialInput.value   = params.get('init') || 0;
-  DOM.monthlyInput.value   = params.get('mo') || 20;
+  DOM.monthlyInput.value   = params.get('mo') || 0;
   if (DOM.extraLumpInput) DOM.extraLumpInput.value = params.get('aLump') || 0;
   if (DOM.extraLumpAge) DOM.extraLumpAge.value = params.get('aLumpAge') || 10;
   DOM.reinvestToggle.checked = params.get('reinv') !== '0';

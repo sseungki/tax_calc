@@ -57,7 +57,7 @@ function simulate(params) {
     initialAmount = 0,
     extraLumpAmount = 0,
     extraLumpAge  = 10,
-    monthlyAmount = 200000,
+    monthlyAmount = 0,
     reinvestDividend = true,
     returnRate    = TAX_CONFIG.defaultReturnRate,
     dividendRate  = TAX_CONFIG.defaultDividendRate,
@@ -75,7 +75,7 @@ function simulate(params) {
   const mf = 1 + (g / 12);                       // 월 성장 팩터 (복리 왜곡 방지용 단순 분할)
   const md = dividendRate / 12;                  // 월 배당률
 
-  let asset = 0, principal = 0, divCash = 0;
+  let asset = 0, principal = 0, divCash = 0, reinvestedSum = 0;
 
   /* ── 증여 기간(period) 관리 ── */
   const periods = [];
@@ -146,9 +146,11 @@ function simulate(params) {
     const base = asset + contribution;
     asset = base * mf;
 
-    /* 배당 현금 누계 (재투자 안 할 때) */
+    /* 배당 처리 */
     if (!reinvestDividend) {
       divCash += base * md;
+    } else {
+      reinvestedSum += base * md; // 참조용(그래프 표시) 누적액
     }
 
     /* 연간 스냅샷 */
@@ -160,6 +162,7 @@ function simulate(params) {
         asset: Math.round(asset),
         principal: Math.round(principal),
         divCash: Math.round(divCash),
+        reinvestedSum: Math.round(reinvestedSum),
         total: Math.round(asset + divCash),
         periodIdx: periods.length,
         periodGift: Math.round(cur.giftSum),
@@ -297,7 +300,7 @@ function buildAlerts(params, periods, excessStart, safeMonthly) {
     if (safeMonthly > 0 && safeMonthly < params.monthlyAmount) {
       alerts.push({
         type: 'info',
-        message: `월 적립액을 ${formatKRW(safeMonthly)}으로 낮추면 한도 안에 들어와요`,
+        message: `월 추가 적립액을 ${formatKRW(safeMonthly)}으로 낮추면 한도 안에 들어와요`,
         period: -1,
       });
     }
@@ -330,7 +333,7 @@ function emptyResult() {
   return {
     yearly: [], periods: [], summary: {
       finalAsset: 0, totalPrincipal: 0, investmentReturn: 0,
-      returnMultiple: '-', cashDividends: 0, totalExcess: 0, totalTax: 0,
+      returnMultiple: '-', cashDividends: 0, reinvestedSum: 0, totalExcess: 0, totalTax: 0,
     },
     excessStart: null, safeMonthly: 0, alerts: [],
   };

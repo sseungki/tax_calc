@@ -55,6 +55,8 @@ function simulate(params) {
   const {
     childAge      = 0,
     initialAmount = 0,
+    extraLumpAmount = 0,
+    extraLumpAge  = 10,
     monthlyAmount = 200000,
     reinvestDividend = true,
     returnRate    = TAX_CONFIG.defaultReturnRate,
@@ -70,7 +72,7 @@ function simulate(params) {
 
   /* 월 수익률 */
   const g = reinvestDividend ? returnRate : Math.max(0, returnRate - dividendRate);
-  const mf = Math.pow(1 + g, 1 / 12);          // 월 성장 팩터
+  const mf = 1 + (g / 12);                       // 월 성장 팩터 (복리 왜곡 방지용 단순 분할)
   const md = dividendRate / 12;                  // 월 배당률
 
   let asset = 0, principal = 0, divCash = 0;
@@ -124,7 +126,10 @@ function simulate(params) {
     }
 
     /* 납입 */
-    const contribution = (m === 0) ? initialAmount + monthlyAmount : monthlyAmount;
+    let contribution = (m === 0) ? initialAmount + monthlyAmount : monthlyAmount;
+    if (ageMo === extraLumpAge * 12) {
+      contribution += extraLumpAmount;
+    }
     principal += contribution;
     cur.giftSum += contribution;
 
@@ -137,11 +142,14 @@ function simulate(params) {
       };
     }
 
-    /* 자산 성장: V = (V + C) × (1+g)^(1/12) */
-    asset = (asset + contribution) * mf;
+    /* 자산 성장 */
+    const base = asset + contribution;
+    asset = base * mf;
 
     /* 배당 현금 누계 (재투자 안 할 때) */
-    if (!reinvestDividend) divCash += asset * md;
+    if (!reinvestDividend) {
+      divCash += base * md;
+    }
 
     /* 연간 스냅샷 */
     if (m % 12 === 0) {
@@ -177,7 +185,7 @@ function simulate(params) {
   periods.forEach(p => { totalExcess += p.excess; totalTax += p.tax; });
 
   const last = yearly[yearly.length - 1];
-  const safeMonthly = calcSafeMonthly(childAge, initialAmount, alreadyGifted);
+  const safeMonthly = calcSafeMonthly(childAge, initialAmount, alreadyGifted, extraLumpAmount, extraLumpAge);
   const alerts = buildAlerts(params, periods, excessStart, safeMonthly);
 
   return {
@@ -202,7 +210,7 @@ function simulate(params) {
 /* ────────────────────────────────────────────
    한도 내 안전 월 적립액 역산
    ──────────────────────────────────────────── */
-function calcSafeMonthly(childAge, initialAmount, alreadyGifted) {
+function calcSafeMonthly(childAge, initialAmount, alreadyGifted, extraLumpAmount, extraLumpAge) {
   const target = TAX_CONFIG.targetAge;
   let simMonth = 0;
   let minSafe = Infinity;
@@ -228,7 +236,14 @@ function calcSafeMonthly(childAge, initialAmount, alreadyGifted) {
     if (months <= 0) break;
 
     /* 첫 기간에만 초기투자금+기증여액 차감 */
-    const fixed = (simMonth === 0) ? (initialAmount + alreadyGifted) : 0;
+    let fixed = (simMonth === 0) ? (initialAmount + alreadyGifted) : 0;
+    
+    // 만약 현재 기간 안에 추가 목돈 투입 시점이 포함된다면 차감
+    const targetMonth = extraLumpAge * 12;
+    if (childAge * 12 + simMonth <= targetMonth && childAge * 12 + simMonth + months > targetMonth) {
+      fixed += extraLumpAmount;
+    }
+
     const safe  = Math.max(0, (exemption - fixed) / months);
     if (safe < minSafe) minSafe = safe;
 

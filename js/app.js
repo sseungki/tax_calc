@@ -15,6 +15,11 @@ const DOM = {
   ageDisplay:      $('#age-display'),
   initialInput:    $('#initial-amount'),
   initialDisplay:  $('#initial-display'),
+  extraLumpGroup:  $('#extra-lump-group'),
+  extraLumpAge:    $('#extra-lump-age'),
+  extraLumpAgeDisp:$('#extra-lump-age-display'),
+  extraLumpInput:  $('#extra-lump-amount'),
+  extraLumpDisplay:$('#extra-lump-display'),
   monthlyInput:    $('#monthly-amount'),
   monthlyDisplay:  $('#monthly-display'),
   reinvestToggle:  $('#reinvest-toggle'),
@@ -60,6 +65,8 @@ function getParams() {
   return {
     childAge:        parseInt(DOM.ageSlider.value),
     initialAmount:   parseInt(DOM.initialInput.value) * 10000,
+    extraLumpAmount: parseInt(DOM.extraLumpInput.value) * 10000,
+    extraLumpAge:    parseInt(DOM.extraLumpAge.value),
     monthlyAmount:   parseInt(DOM.monthlyInput.value) * 10000,
     reinvestDividend:DOM.reinvestToggle.checked,
     returnRate:      parseFloat(DOM.returnSlider.value) / 100,
@@ -101,6 +108,22 @@ function scheduleUpdate() {
 function updateDisplays(p) {
   DOM.ageDisplay.textContent = `${p.childAge}세`;
   DOM.initialDisplay.textContent = formatKRW(p.initialAmount);
+  if (DOM.extraLumpGroup) {
+    if (p.childAge >= 19) {
+      DOM.extraLumpGroup.style.display = 'none';
+    } else {
+      DOM.extraLumpGroup.style.display = 'block';
+      const minAge = p.childAge + 1;
+      DOM.extraLumpAge.min = minAge;
+      if (parseInt(DOM.extraLumpAge.value) < minAge) {
+        DOM.extraLumpAge.value = minAge;
+        p.extraLumpAge = minAge;
+      }
+      DOM.extraLumpAgeDisp.textContent = p.extraLumpAge;
+      DOM.extraLumpDisplay.textContent = formatKRW(p.extraLumpAmount);
+      updateSliderProgress(DOM.extraLumpAge);
+    }
+  }
   DOM.monthlyDisplay.textContent = formatKRW(p.monthlyAmount);
   DOM.returnDisplay.textContent = `${(p.returnRate * 100).toFixed(1)}%`;
   DOM.dividendDisplay.textContent = `${(p.dividendRate * 100).toFixed(1)}%`;
@@ -150,10 +173,25 @@ function updateComparison(result, altResult, isReinvest) {
     DOM.comparisonBanner.style.display = 'none';
     return;
   }
+  
   DOM.comparisonBanner.style.display = 'flex';
-  const label = isReinvest ? '배당 재투자로' : '배당 재투자를 끄면';
-  const sign  = diff > 0 ? '+' : '';
-  DOM.comparisonDiff.innerHTML = `${label} <strong>${sign}${formatKRW(diff)}</strong> 차이`;
+  const icon = DOM.comparisonBanner.querySelector('.icon');
+  
+  if (isReinvest) {
+    // 재투자 ON -> 껐을 때 대비 수익
+    icon.textContent = '💡';
+    DOM.comparisonBanner.style.background = 'var(--safe-bg)';
+    DOM.comparisonBanner.style.borderColor = 'rgba(52, 211, 153, 0.2)';
+    DOM.comparisonDiff.style.color = 'var(--safe)';
+    DOM.comparisonDiff.innerHTML = `배당 재투자로 <strong>+${formatKRW(diff)}</strong> 추가 수익!`;
+  } else {
+    // 재투자 OFF -> 켰을 때 대비 손실(기회비용)
+    icon.textContent = '⚠️';
+    DOM.comparisonBanner.style.background = 'var(--warning-bg)';
+    DOM.comparisonBanner.style.borderColor = 'rgba(251, 191, 36, 0.2)';
+    DOM.comparisonDiff.style.color = 'var(--warning)';
+    DOM.comparisonDiff.innerHTML = `배당 재투자를 켜면 <strong>${formatKRW(-diff)}</strong> 더 모을 수 있어요!`;
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -179,6 +217,7 @@ function updateChart(result) {
 
     /* 초과 마커 */
     chart.options.plugins.annotation = buildAnnotations(result, data);
+    chart.currentResult = result;
     chart.update('none');
     return;
   }
@@ -258,7 +297,7 @@ function updateChart(result) {
             title: (items) => items[0].label,
             label: (item) => {
               const idx = item.dataIndex;
-              const d = result.yearly[idx];
+              const d = (chart && chart.currentResult) ? chart.currentResult.yearly[idx] : result.yearly[idx];
               if (!d) return '';
               if (item.datasetIndex === 0) {
                 return ` 총 자산: ${formatKRW(d.total)}`;
@@ -267,7 +306,7 @@ function updateChart(result) {
             },
             afterBody: (items) => {
               const idx = items[0].dataIndex;
-              const d = result.yearly[idx];
+              const d = (chart && chart.currentResult) ? chart.currentResult.yearly[idx] : result.yearly[idx];
               if (!d) return '';
               const lines = [];
               if (d.divCash > 0) lines.push(`  배당 현금: ${formatKRW(d.divCash)}`);
@@ -287,8 +326,9 @@ function updateChart(result) {
             font: { family: "'Noto Sans KR', sans-serif", size: 11 },
             maxRotation: 0,
             callback: (val, idx) => {
-              if (data.length <= 11) return labels[idx];
-              return idx % 2 === 0 ? labels[idx] : '';
+              const currentLabels = chart ? chart.data.labels : labels;
+              if (currentLabels.length <= 11) return currentLabels[idx];
+              return idx % 2 === 0 ? currentLabels[idx] : '';
             },
           },
         },
@@ -307,6 +347,8 @@ function updateChart(result) {
       },
     },
   });
+  
+  chart.currentResult = result;
 }
 
 function buildAnnotations(result, data) {
@@ -459,6 +501,8 @@ function updateShareUrl(p) {
     age: p.childAge,
     init: p.initialAmount / 10000,
     mo: p.monthlyAmount / 10000,
+    aLump: p.extraLumpAmount / 10000,
+    aLumpAge: p.extraLumpAge,
     reinv: p.reinvestDividend ? 1 : 0,
     ret: (p.returnRate * 100).toFixed(1),
     div: (p.dividendRate * 100).toFixed(1),
@@ -474,6 +518,8 @@ function copyShareUrl() {
     age: p.childAge,
     init: p.initialAmount / 10000,
     mo: p.monthlyAmount / 10000,
+    aLump: p.extraLumpAmount / 10000,
+    aLumpAge: p.extraLumpAge,
     reinv: p.reinvestDividend ? 1 : 0,
     ret: (p.returnRate * 100).toFixed(1),
     div: (p.dividendRate * 100).toFixed(1),
@@ -489,6 +535,8 @@ function loadFromUrl() {
   DOM.ageSlider.value      = params.get('age') || 0;
   DOM.initialInput.value   = params.get('init') || 0;
   DOM.monthlyInput.value   = params.get('mo') || 20;
+  if (DOM.extraLumpInput) DOM.extraLumpInput.value = params.get('aLump') || 0;
+  if (DOM.extraLumpAge) DOM.extraLumpAge.value = params.get('aLumpAge') || 10;
   DOM.reinvestToggle.checked = params.get('reinv') !== '0';
   DOM.returnSlider.value   = params.get('ret') || 7;
   DOM.dividendInput.value  = params.get('div') || 1.5;
@@ -514,6 +562,8 @@ function init() {
   /* 입력 이벤트 */
   DOM.ageSlider.addEventListener('input', scheduleUpdate);
   DOM.initialInput.addEventListener('input', scheduleUpdate);
+  if (DOM.extraLumpInput) DOM.extraLumpInput.addEventListener('input', scheduleUpdate);
+  if (DOM.extraLumpAge) DOM.extraLumpAge.addEventListener('input', scheduleUpdate);
   DOM.monthlyInput.addEventListener('input', scheduleUpdate);
   DOM.reinvestToggle.addEventListener('change', scheduleUpdate);
   DOM.returnSlider.addEventListener('input', scheduleUpdate);

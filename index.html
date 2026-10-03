@@ -102,6 +102,29 @@
           </div>
         </div>
 
+        <!-- I-2.5: 추가 목돈 투입 -->
+        <div class="form-group" id="extra-lump-group">
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>추가 목돈 투입 시점</span>
+            <span style="font-size:0.85rem; color:var(--text-accent);">
+              <span id="extra-lump-age-display">10</span>세
+            </span>
+          </label>
+          <input type="range" id="extra-lump-age" min="1" max="19" step="1" value="10" style="margin-bottom:12px;">
+          
+          <div class="value-display" id="extra-lump-display">0원</div>
+          <div class="amount-input-wrap">
+            <input type="number" id="extra-lump-amount" min="0" max="100000" step="1" value="0" inputmode="numeric">
+            <span class="unit">만 원</span>
+          </div>
+          <div class="quick-buttons">
+            <button class="quick-btn" data-target="extra-lump-amount" data-amount="10">+10만</button>
+            <button class="quick-btn" data-target="extra-lump-amount" data-amount="100">+100만</button>
+            <button class="quick-btn" data-target="extra-lump-amount" data-amount="1000">+1,000만</button>
+            <button class="quick-btn subtract" data-target="extra-lump-amount" data-amount="-100">-100만</button>
+          </div>
+        </div>
+
         <!-- I-3: 월 적립액 -->
         <div class="form-group">
           <label for="monthly-amount">월 적립액</label>
